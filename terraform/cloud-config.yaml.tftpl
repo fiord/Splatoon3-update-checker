@@ -1,0 +1,53 @@
+#cloud-config
+package_update: true
+packages:
+  - python3-pip
+  - python3-venv
+
+write_files:
+  - path: /opt/bot/main.py
+    permissions: '0644'
+    content: |
+      ${indent(6, main_py_content)}
+
+  - path: /opt/bot/start.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      cd /opt/bot
+      
+      # Setup Environment if not exists
+      if [ ! -d "venv" ]; then
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install "discord.py>=2.3.2" "requests>=2.32.5"
+      else
+        source venv/bin/activate
+      fi
+      
+      # Run the bot
+      python3 main.py
+
+  - path: /etc/systemd/system/discord-bot.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Discord Bot Service
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=root
+      WorkingDirectory=/opt/bot
+      ExecStart=/opt/bot/start.sh
+      Restart=always
+      Environment="DISCORD_TOKEN=${discord_token}"
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - chmod +x /opt/bot/start.sh
+  - systemctl daemon-reload
+  - systemctl enable discord-bot.service
+  - systemctl start discord-bot.service
